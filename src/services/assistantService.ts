@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration, Content } from "@google/genai";
 import { ActionType } from "../types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -178,14 +178,16 @@ const listTasksTool: FunctionDeclaration = {
   }
 };
 
-export async function processVoiceCommand(command: string) {
+export async function processVoiceCommand(command: string, history: Content[] = []) {
   try {
-    const response = await ai.models.generateContent({
+    const chat = ai.chats.create({
       model: "gemini-3-flash-preview",
-      contents: command,
+      history,
       config: {
         systemInstruction: `You are Zephyr, a helpful and futuristic voice assistant. 
         Your personality is elegant, intelligent, and slightly witty.
+        Maintain context from the conversation. If the user asks a follow-up like "and set a timer for it", they are referring to the previous topic.
+        
         Keep responses concise and conversational (max 2 sentences).
         If the user wants to save something (note, reminder, info), use add_note.
         If the user wants to add a specific item to a to-do list or task list, use add_task.
@@ -202,12 +204,13 @@ export async function processVoiceCommand(command: string) {
       }
     });
 
-    const text = response.text || "";
-    const functionCalls = response.functionCalls;
+    const result = await chat.sendMessage({ message: command });
+    const text = result.text || "";
+    const functionCalls = result.functionCalls;
 
     let action: { type: ActionType; payload: any } = { type: 'NONE', payload: null };
 
-    if (functionCalls) {
+    if (functionCalls && functionCalls.length > 0) {
       const call = functionCalls[0];
       if (call.name === 'add_note') {
         action = { type: 'ADD_NOTE', payload: call.args };

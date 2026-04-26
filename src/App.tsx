@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Trash2
 } from 'lucide-react';
+import { Content } from '@google/genai';
 import confetti from 'canvas-confetti';
 import { voiceService } from './services/voiceService.ts';
 import { processVoiceCommand } from './services/assistantService.ts';
@@ -31,6 +32,7 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
+  const [chatHistory, setChatHistory] = useState<Content[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
   // Persistence: Load on mount
@@ -159,10 +161,18 @@ export default function App() {
       setTranscript(text);
       
       setState('processing');
-      const result = await processVoiceCommand(text);
+      const result = await processVoiceCommand(text, chatHistory);
       setResponse(result.text);
 
-      // Add to History
+      // Update Chat History (LLM Context)
+      const newChatHistory: Content[] = [
+        ...chatHistory,
+        { role: 'user', parts: [{ text }] },
+        { role: 'model', parts: [{ text: result.text }] }
+      ];
+      setChatHistory(newChatHistory.slice(-20)); // Keep last 10 exchanges
+
+      // Add to Visual History
       const newEvent: HistoryEvent = {
         id: Math.random().toString(36).substr(2, 9),
         command: text,
