@@ -1,0 +1,6 @@
+{
+  "name": "Aura Voice Assistant",
+  "description": "A futuristic personal voice assistant with integrated automation for notes, weather, and reminders.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["voice_interaction", "automation", "ai_brain"]
+}
