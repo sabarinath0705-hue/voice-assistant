@@ -11,12 +11,14 @@ import {
   ChevronRight,
   Settings,
   History,
-  Info
+  Info,
+  CheckSquare,
+  Trash2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { voiceService } from './services/voiceService.ts';
 import { processVoiceCommand } from './services/assistantService.ts';
-import { AppState, Note, Alarm, WeatherData, HistoryEvent } from './types.ts';
+import { AppState, Note, Alarm, Task, WeatherData, HistoryEvent } from './types.ts';
 
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
@@ -24,6 +26,7 @@ export default function App() {
   const [response, setResponse] = useState<string>("Hello, I am Zephyr. How can I assist you today?");
   const [notes, setNotes] = useState<Note[]>([]);
   const [alarms, setAlarms] = useState<Alarm[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
@@ -43,6 +46,9 @@ export default function App() {
 
     const savedAlarms = localStorage.getItem('aura_alarms');
     if (savedAlarms) setAlarms(JSON.parse(savedAlarms));
+
+    const savedTasks = localStorage.getItem('aura_tasks');
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
 
     const savedTimer = localStorage.getItem('aura_timer');
     if (savedTimer) {
@@ -69,6 +75,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('aura_alarms', JSON.stringify(alarms));
   }, [alarms]);
+
+  useEffect(() => {
+    localStorage.setItem('aura_tasks', JSON.stringify(tasks));
+  }, [tasks]);
 
   useEffect(() => {
     if (weather) localStorage.setItem('aura_weather', JSON.stringify(weather));
@@ -173,6 +183,35 @@ export default function App() {
             };
             setNotes(prev => [newNote, ...prev]);
             break;
+          case 'ADD_TASK': {
+            const newTask: Task = {
+              id: Math.random().toString(36).substr(2, 9),
+              title: result.action.payload.title,
+              completed: false,
+              createdAt: Date.now()
+            };
+            setTasks(prev => [newTask, ...prev]);
+            setResponse(`Added task: ${result.action.payload.title}`);
+            break;
+          }
+          case 'COMPLETE_TASK': {
+            const taskTitle = result.action.payload.title.toLowerCase();
+            setTasks(prev => prev.map(t => 
+              t.title.toLowerCase().includes(taskTitle) ? { ...t, completed: true } : t
+            ));
+            setResponse(`Marked task "${result.action.payload.title}" as complete.`);
+            break;
+          }
+          case 'LIST_TASKS': {
+            const pendingTasks = tasks.filter(t => !t.completed);
+            if (pendingTasks.length === 0) {
+              setResponse("You have no pending tasks.");
+            } else {
+              const taskList = pendingTasks.map(t => t.title).join(", ");
+              setResponse(`You have ${pendingTasks.length} tasks: ${taskList}`);
+            }
+            break;
+          }
           case 'GET_WEATHER':
             // Mock weather fetch with expanded data
             const baseTemp = 22 + Math.floor(Math.random() * 10);
@@ -409,7 +448,7 @@ export default function App() {
       </main>
 
       {/* Modular Utility Rail */}
-      <footer className="w-full max-w-7xl z-10 px-8 pb-10 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <footer className="w-full max-w-7xl z-10 px-8 pb-10 grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* Module: Weather */}
         <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-4 group transition-all hover:bg-white/[0.05]">
           <div className="flex items-center justify-between">
@@ -454,6 +493,45 @@ export default function App() {
           <div className="flex-1 bg-black/40 rounded-xl p-3 border border-white/5">
              <h4 className="text-xs font-medium text-white/80 line-clamp-1 mb-1">{notes.length > 0 ? notes[0].content : 'No active notes'}</h4>
              <p className="text-[10px] text-white/30 line-clamp-2 leading-relaxed">{notes.length > 0 && notes[0].details ? notes[0].details : 'Your saved tactical data and voice intents will appear here.'}</p>
+          </div>
+        </div>
+
+        {/* Module: Execution (Tasks) */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-3 group transition-all hover:bg-white/[0.05]">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center tech-border">
+                <CheckSquare className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Execution</p>
+                <h3 className="text-base font-medium">To-Do List</h3>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono text-white/20">{tasks.filter(t => !t.completed).length} Act.</span>
+          </div>
+          <div className="flex-1 bg-black/40 rounded-xl p-3 border border-white/5 overflow-hidden">
+             <div className="flex flex-col gap-2 max-h-[60px] overflow-y-auto scrollbar-hide">
+                {tasks.length > 0 ? (
+                  tasks.map(task => (
+                    <div key={task.id} className="flex items-center gap-2 group/task">
+                      <div 
+                        onClick={() => setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))}
+                        className={`w-3 h-3 rounded border border-white/20 flex-shrink-0 cursor-pointer ${task.completed ? 'bg-green-500 border-green-500' : 'hover:border-white/40'}`} 
+                      />
+                      <span className={`text-[10px] truncate ${task.completed ? 'text-white/20 line-through' : 'text-white/70'}`}>
+                        {task.title}
+                      </span>
+                      <Trash2 
+                        onClick={() => setTasks(prev => prev.filter(t => t.id !== task.id))}
+                        className="w-2 h-2 text-white/0 group-hover/task:text-white/20 cursor-pointer ml-auto hover:text-red-400 transition-colors" 
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-white/30 italic">No objectives defined.</p>
+                )}
+             </div>
           </div>
         </div>
 

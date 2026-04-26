@@ -139,6 +139,45 @@ const playMusicTool: FunctionDeclaration = {
   }
 };
 
+const addTaskTool: FunctionDeclaration = {
+  name: "add_task",
+  description: "Adds a new task to the user's to-do list.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description: "The title or description of the task."
+      }
+    },
+    required: ["title"]
+  }
+};
+
+const completeTaskTool: FunctionDeclaration = {
+  name: "complete_task",
+  description: "Marks a specific task as completed.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description: "The title of the task to mark as complete."
+      }
+    },
+    required: ["title"]
+  }
+};
+
+const listTasksTool: FunctionDeclaration = {
+  name: "list_tasks",
+  description: "Lists all current tasks in the to-do list.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {}
+  }
+};
+
 export async function processVoiceCommand(command: string) {
   try {
     const response = await ai.models.generateContent({
@@ -148,7 +187,10 @@ export async function processVoiceCommand(command: string) {
         systemInstruction: `You are Zephyr, a helpful and futuristic voice assistant. 
         Your personality is elegant, intelligent, and slightly witty.
         Keep responses concise and conversational (max 2 sentences).
-        If the user wants to save something, use add_note.
+        If the user wants to save something (note, reminder, info), use add_note.
+        If the user wants to add a specific item to a to-do list or task list, use add_task.
+        If they want to complete or finish a task, use complete_task.
+        If they want to see their tasks or what's on their list, use list_tasks.
         If they ask about weather, use get_weather.
         If they want a timer, use set_timer.
         If they want to set an alarm, use set_alarm.
@@ -156,7 +198,7 @@ export async function processVoiceCommand(command: string) {
         If they want to play music, use play_music.
         If they want to schedule a meeting, use schedule_meeting.
         If they want to send an email, use send_email.`,
-        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool, playMusicTool] }]
+        tools: [{ functionDeclarations: [addNoteTool, addTaskTool, completeTaskTool, listTasksTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool, playMusicTool] }]
       }
     });
 
@@ -169,6 +211,12 @@ export async function processVoiceCommand(command: string) {
       const call = functionCalls[0];
       if (call.name === 'add_note') {
         action = { type: 'ADD_NOTE', payload: call.args };
+      } else if (call.name === 'add_task') {
+        action = { type: 'ADD_TASK', payload: call.args };
+      } else if (call.name === 'complete_task') {
+        action = { type: 'COMPLETE_TASK', payload: call.args };
+      } else if (call.name === 'list_tasks') {
+        action = { type: 'LIST_TASKS', payload: call.args };
       } else if (call.name === 'get_weather') {
         action = { type: 'GET_WEATHER', payload: call.args };
       } else if (call.name === 'set_timer') {
