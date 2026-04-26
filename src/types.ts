@@ -41,7 +41,13 @@ export interface Task {
   createdAt: number;
 }
 
-export type ActionType = 'ADD_NOTE' | 'ADD_TASK' | 'COMPLETE_TASK' | 'LIST_TASKS' | 'SET_TIMER' | 'SET_ALARM' | 'GET_WEATHER' | 'OPEN_APP' | 'PLAY_MUSIC' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
+export interface Shortcut {
+  id: string;
+  phrase: string;
+  action: string;
+}
+
+export type ActionType = 'ADD_NOTE' | 'ADD_TASK' | 'COMPLETE_TASK' | 'LIST_TASKS' | 'SET_TIMER' | 'SET_ALARM' | 'GET_WEATHER' | 'OPEN_APP' | 'PLAY_MUSIC' | 'ADD_SHORTCUT' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
 
 export interface AssistantResponse {
   text: string;

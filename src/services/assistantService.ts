@@ -178,6 +178,25 @@ const listTasksTool: FunctionDeclaration = {
   }
 };
 
+const addShortcutTool: FunctionDeclaration = {
+  name: "add_shortcut",
+  description: "Creates a custom voice shortcut trigger for a specific action string.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      phrase: {
+        type: Type.STRING,
+        description: "The custom phrase the user will say (e.g., 'Energize')."
+      },
+      action: {
+        type: Type.STRING,
+        description: "The mapped command the assistant should execute (e.g., 'Turn on high lights and play upbeat music')."
+      }
+    },
+    required: ["phrase", "action"]
+  }
+};
+
 export async function processVoiceCommand(command: string, history: Content[] = []) {
   try {
     const chat = ai.chats.create({
@@ -193,6 +212,7 @@ export async function processVoiceCommand(command: string, history: Content[] = 
         If the user wants to add a specific item to a to-do list or task list, use add_task.
         If they want to complete or finish a task, use complete_task.
         If they want to see their tasks or what's on their list, use list_tasks.
+        If they want to create a custom voice shortcut, use add_shortcut.
         If they ask about weather, use get_weather.
         If they want a timer, use set_timer.
         If they want to set an alarm, use set_alarm.
@@ -200,7 +220,7 @@ export async function processVoiceCommand(command: string, history: Content[] = 
         If they want to play music, use play_music.
         If they want to schedule a meeting, use schedule_meeting.
         If they want to send an email, use send_email.`,
-        tools: [{ functionDeclarations: [addNoteTool, addTaskTool, completeTaskTool, listTasksTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool, playMusicTool] }]
+        tools: [{ functionDeclarations: [addNoteTool, addTaskTool, completeTaskTool, listTasksTool, addShortcutTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool, playMusicTool] }]
       }
     });
 
@@ -220,6 +240,8 @@ export async function processVoiceCommand(command: string, history: Content[] = 
         action = { type: 'COMPLETE_TASK', payload: call.args };
       } else if (call.name === 'list_tasks') {
         action = { type: 'LIST_TASKS', payload: call.args };
+      } else if (call.name === 'add_shortcut') {
+        action = { type: 'ADD_SHORTCUT', payload: call.args };
       } else if (call.name === 'get_weather') {
         action = { type: 'GET_WEATHER', payload: call.args };
       } else if (call.name === 'set_timer') {

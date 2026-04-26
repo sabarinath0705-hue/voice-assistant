@@ -13,13 +13,14 @@ import {
   History,
   Info,
   CheckSquare,
-  Trash2
+  Trash2,
+  Zap
 } from 'lucide-react';
 import { Content } from '@google/genai';
 import confetti from 'canvas-confetti';
 import { voiceService } from './services/voiceService.ts';
 import { processVoiceCommand } from './services/assistantService.ts';
-import { AppState, Note, Alarm, Task, WeatherData, HistoryEvent } from './types.ts';
+import { AppState, Note, Alarm, Task, Shortcut, WeatherData, HistoryEvent } from './types.ts';
 
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
@@ -28,6 +29,7 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
@@ -51,6 +53,9 @@ export default function App() {
 
     const savedTasks = localStorage.getItem('aura_tasks');
     if (savedTasks) setTasks(JSON.parse(savedTasks));
+
+    const savedShortcuts = localStorage.getItem('aura_shortcuts');
+    if (savedShortcuts) setShortcuts(JSON.parse(savedShortcuts));
 
     const savedTimer = localStorage.getItem('aura_timer');
     if (savedTimer) {
@@ -83,8 +88,8 @@ export default function App() {
   }, [tasks]);
 
   useEffect(() => {
-    if (weather) localStorage.setItem('aura_weather', JSON.stringify(weather));
-  }, [weather]);
+    localStorage.setItem('aura_shortcuts', JSON.stringify(shortcuts));
+  }, [shortcuts]);
 
   useEffect(() => {
     if (activeTimer !== null) {
@@ -161,13 +166,22 @@ export default function App() {
       setTranscript(text);
       
       setState('processing');
-      const result = await processVoiceCommand(text, chatHistory);
+
+      // Check for user-defined shortcuts
+      const matchedShortcut = shortcuts.find(s => text.toLowerCase().includes(s.phrase.toLowerCase()));
+      const commandToProcess = matchedShortcut ? matchedShortcut.action : text;
+
+      if (matchedShortcut) {
+        setTranscript(`${text} (Shortcut: ${matchedShortcut.phrase})`);
+      }
+
+      const result = await processVoiceCommand(commandToProcess, chatHistory);
       setResponse(result.text);
 
       // Update Chat History (LLM Context)
       const newChatHistory: Content[] = [
         ...chatHistory,
-        { role: 'user', parts: [{ text }] },
+        { role: 'user', parts: [{ text: commandToProcess }] },
         { role: 'model', parts: [{ text: result.text }] }
       ];
       setChatHistory(newChatHistory.slice(-20)); // Keep last 10 exchanges
@@ -193,6 +207,16 @@ export default function App() {
             };
             setNotes(prev => [newNote, ...prev]);
             break;
+          case 'ADD_SHORTCUT': {
+            const newShortcut: Shortcut = {
+              id: Math.random().toString(36).substr(2, 9),
+              phrase: result.action.payload.phrase,
+              action: result.action.payload.action
+            };
+            setShortcuts(prev => [newShortcut, ...prev]);
+            setResponse(`Shortcut installed: "${result.action.payload.phrase}" will now trigger "${result.action.payload.action}"`);
+            break;
+          }
           case 'ADD_TASK': {
             const newTask: Task = {
               id: Math.random().toString(36).substr(2, 9),
@@ -598,6 +622,39 @@ export default function App() {
                 <History className="w-3 h-3 text-aura-secondary" /> Logs
               </button>
            </div>
+        </div>
+
+        {/* Module: Shortcuts */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-3 group transition-all hover:bg-white/[0.05]">
+           <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center tech-border">
+                <Zap className="w-5 h-5 text-orange-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Triggers</p>
+                <h3 className="text-base font-medium">Shortcuts</h3>
+              </div>
+            </div>
+            <div className="flex-1 bg-black/40 rounded-xl p-3 border border-white/5 overflow-hidden">
+               <div className="flex flex-col gap-1.5 max-h-[60px] overflow-y-auto scrollbar-hide">
+                  {shortcuts.length > 0 ? (
+                    shortcuts.map(s => (
+                      <div key={s.id} className="flex items-center justify-between group/s">
+                        <span className="text-[10px] text-white/80 font-medium tracking-tight">"{s.phrase}"</span>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[8px] text-white/20 uppercase font-mono">→ {s.action.length > 15 ? s.action.substring(0, 15) + '...' : s.action}</span>
+                           <Trash2 
+                             onClick={() => setShortcuts(prev => prev.filter(item => item.id !== s.id))}
+                             className="w-2.5 h-2.5 text-white/0 group-hover/s:text-white/30 cursor-pointer hover:text-red-400 transition-colors" 
+                           />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] text-white/30 italic">No custom triggers.</p>
+                  )}
+               </div>
+            </div>
         </div>
       </footer>
 
