@@ -124,6 +124,21 @@ const openAppTool: FunctionDeclaration = {
   }
 };
 
+const playMusicTool: FunctionDeclaration = {
+  name: "play_music",
+  description: "Plays music by opening a streaming service.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      service: {
+        type: Type.STRING,
+        description: "The music service to use (e.g. Spotify, YouTube Music).",
+        enum: ["Spotify", "YouTube Music"]
+      }
+    }
+  }
+};
+
 export async function processVoiceCommand(command: string) {
   try {
     const response = await ai.models.generateContent({
@@ -138,9 +153,10 @@ export async function processVoiceCommand(command: string) {
         If they want a timer, use set_timer.
         If they want to set an alarm, use set_alarm.
         If they want to open an app (Maps, Spotify, YouTube, etc), use open_app.
+        If they want to play music, use play_music.
         If they want to schedule a meeting, use schedule_meeting.
         If they want to send an email, use send_email.`,
-        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool] }]
+        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool, playMusicTool] }]
       }
     });
 
@@ -161,6 +177,8 @@ export async function processVoiceCommand(command: string) {
         action = { type: 'SET_ALARM', payload: call.args };
       } else if (call.name === 'open_app') {
         action = { type: 'OPEN_APP', payload: call.args };
+      } else if (call.name === 'play_music') {
+        action = { type: 'PLAY_MUSIC', payload: call.args };
       } else if (call.name === 'schedule_meeting') {
         action = { type: 'SCHEDULE_MEETING', payload: call.args };
       } else if (call.name === 'send_email') {

@@ -34,7 +34,7 @@ export interface HistoryEvent {
   timestamp: number;
 }
 
-export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'SET_ALARM' | 'GET_WEATHER' | 'OPEN_APP' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
+export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'SET_ALARM' | 'GET_WEATHER' | 'OPEN_APP' | 'PLAY_MUSIC' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
 
 export interface AssistantResponse {
   text: string;

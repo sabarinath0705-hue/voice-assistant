@@ -235,6 +235,15 @@ export default function App() {
             }
             break;
           }
+          case 'PLAY_MUSIC': {
+            const service = result.action.payload.service || 'Spotify';
+            if (service === 'YouTube Music') {
+              window.open('https://music.youtube.com', '_blank');
+            } else {
+              window.open('https://open.spotify.com', '_blank');
+            }
+            break;
+          }
           case 'SCHEDULE_MEETING': {
             const meetingTitle = encodeURIComponent(result.action.payload.title || 'Meeting');
             const meetingDate = encodeURIComponent(result.action.payload.date || '');
