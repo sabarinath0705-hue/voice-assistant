@@ -21,7 +21,7 @@ export interface WeatherData {
   hourly: HourlyForecast[];
 }
 
-export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'GET_WEATHER' | 'OPEN_APP' | 'NONE';
+export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'GET_WEATHER' | 'OPEN_APP' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
 
 export interface AssistantResponse {
   text: string;

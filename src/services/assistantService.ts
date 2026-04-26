@@ -52,6 +52,48 @@ const setTimerTool: FunctionDeclaration = {
   }
 };
 
+const scheduleMeetingTool: FunctionDeclaration = {
+  name: "schedule_meeting",
+  description: "Schedules a meeting in the calendar.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description: "Title of the meeting."
+      },
+      date: {
+        type: Type.STRING,
+        description: "Date and time of the meeting (e.g. tomorrow at 10am)."
+      }
+    },
+    required: ["title"]
+  }
+};
+
+const sendEmailTool: FunctionDeclaration = {
+  name: "send_email",
+  description: "Drafts or sends an email.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      to: {
+        type: Type.STRING,
+        description: "Recipient email or name."
+      },
+      subject: {
+        type: Type.STRING,
+        description: "Subject of the email."
+      },
+      body: {
+        type: Type.STRING,
+        description: "Content of the email."
+      }
+    },
+    required: ["to"]
+  }
+};
+
 export async function processVoiceCommand(command: string) {
   try {
     const response = await ai.models.generateContent({
@@ -63,8 +105,10 @@ export async function processVoiceCommand(command: string) {
         Keep responses concise and conversational (max 2 sentences).
         If the user wants to save something, use add_note.
         If they ask about weather, use get_weather.
-        If they want a timer, use set_timer.`,
-        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool] }]
+        If they want a timer, use set_timer.
+        If they want to schedule a meeting, use schedule_meeting.
+        If they want to send an email, use send_email.`,
+        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool] }]
       }
     });
 
@@ -81,6 +125,10 @@ export async function processVoiceCommand(command: string) {
         action = { type: 'GET_WEATHER', payload: call.args };
       } else if (call.name === 'set_timer') {
         action = { type: 'SET_TIMER', payload: call.args };
+      } else if (call.name === 'schedule_meeting') {
+        action = { type: 'SCHEDULE_MEETING', payload: call.args };
+      } else if (call.name === 'send_email') {
+        action = { type: 'SEND_EMAIL', payload: call.args };
       }
     }
 

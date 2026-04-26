@@ -132,6 +132,17 @@ export default function App() {
           case 'SET_TIMER':
             setActiveTimer(result.action.payload.durationSeconds);
             break;
+          case 'SCHEDULE_MEETING':
+            const meetingTitle = encodeURIComponent(result.action.payload.title || 'Meeting');
+            const meetingDate = encodeURIComponent(result.action.payload.date || '');
+            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${meetingTitle}&details=Scheduled%20via%20Aura%20Assistant.%20Stated%20time:%20${meetingDate}`, '_blank');
+            break;
+          case 'SEND_EMAIL':
+            const to = encodeURIComponent(result.action.payload.to || '');
+            const subject = encodeURIComponent(result.action.payload.subject || 'Hello from Aura');
+            const body = encodeURIComponent(result.action.payload.body || '');
+            window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+            break;
         }
       }
 
