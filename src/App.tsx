@@ -21,7 +21,7 @@ import { AppState, Note, WeatherData, HistoryEvent } from './types.ts';
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
   const [transcript, setTranscript] = useState<string>("");
-  const [response, setResponse] = useState<string>("Hello, I am Vesper. How can I assistance you today?");
+  const [response, setResponse] = useState<string>("Hello, I am Zephyr. How can I assist you today?");
   const [notes, setNotes] = useState<Note[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -189,7 +189,7 @@ export default function App() {
             <Volume2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Vesper</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Zephyr</h1>
             <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Assistant OS</p>
           </div>
         </div>
@@ -387,7 +387,7 @@ export default function App() {
                       {event.command}
                     </p>
                     <p className="text-white/60 text-sm italic">
-                      <span className="text-aura-primary mr-2">Vesper:</span>
+                      <span className="text-aura-primary mr-2">Zephyr:</span>
                       {event.response}
                     </p>
                   </div>

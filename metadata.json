@@ -1,6 +1,6 @@
 {
-  "name": "Vesper Voice Assistant",
-  "description": "A sophisticated AI-powered voice assistant with a memory of interactions and smart automation capabilities.",
+  "name": "Zephyr Assistant",
+  "description": "A cutting-edge voice assistant with advanced zero-latency command processing and system automation.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["voice_interaction", "automation", "ai_brain"]
 }

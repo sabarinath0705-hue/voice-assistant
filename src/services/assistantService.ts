@@ -100,7 +100,7 @@ export async function processVoiceCommand(command: string) {
       model: "gemini-3-flash-preview",
       contents: command,
       config: {
-        systemInstruction: `You are Aura, a helpful and futuristic voice assistant. 
+        systemInstruction: `You are Zephyr, a helpful and futuristic voice assistant. 
         Your personality is elegant, intelligent, and slightly witty.
         Keep responses concise and conversational (max 2 sentences).
         If the user wants to save something, use add_note.
