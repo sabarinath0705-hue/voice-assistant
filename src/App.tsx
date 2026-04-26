@@ -27,6 +27,47 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
 
+  // Persistence: Load on mount
+  useEffect(() => {
+    const savedNotes = localStorage.getItem('aura_notes');
+    if (savedNotes) setNotes(JSON.parse(savedNotes));
+
+    const savedWeather = localStorage.getItem('aura_weather');
+    if (savedWeather) setWeather(JSON.parse(savedWeather));
+
+    const savedTimer = localStorage.getItem('aura_timer');
+    if (savedTimer) {
+      const { seconds, timestamp } = JSON.parse(savedTimer);
+      const elapsed = Math.floor((Date.now() - timestamp) / 1000);
+      const remaining = seconds - elapsed;
+      if (remaining > 0) {
+        setActiveTimer(remaining);
+      } else {
+        localStorage.removeItem('aura_timer');
+      }
+    }
+  }, []);
+
+  // Persistence: Save on change
+  useEffect(() => {
+    localStorage.setItem('aura_notes', JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    if (weather) localStorage.setItem('aura_weather', JSON.stringify(weather));
+  }, [weather]);
+
+  useEffect(() => {
+    if (activeTimer !== null) {
+      localStorage.setItem('aura_timer', JSON.stringify({
+        seconds: activeTimer,
+        timestamp: Date.now()
+      }));
+    } else {
+      localStorage.removeItem('aura_timer');
+    }
+  }, [activeTimer]);
+
   // Time ticker
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
