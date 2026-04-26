@@ -1,6 +1,6 @@
 {
-  "name": "Aura Voice Assistant",
-  "description": "A futuristic personal voice assistant with integrated automation for notes, weather, and reminders.",
+  "name": "Vesper Voice Assistant",
+  "description": "A sophisticated AI-powered voice assistant with a memory of interactions and smart automation capabilities.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["voice_interaction", "automation", "ai_brain"]
 }

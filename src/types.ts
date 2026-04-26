@@ -21,6 +21,13 @@ export interface WeatherData {
   hourly: HourlyForecast[];
 }
 
+export interface HistoryEvent {
+  id: string;
+  command: string;
+  response: string;
+  timestamp: number;
+}
+
 export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'GET_WEATHER' | 'OPEN_APP' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
 
 export interface AssistantResponse {

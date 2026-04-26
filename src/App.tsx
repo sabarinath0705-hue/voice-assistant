@@ -16,16 +16,18 @@ import {
 import confetti from 'canvas-confetti';
 import { voiceService } from './services/voiceService.ts';
 import { processVoiceCommand } from './services/assistantService.ts';
-import { AppState, Note, WeatherData } from './types.ts';
+import { AppState, Note, WeatherData, HistoryEvent } from './types.ts';
 
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
   const [transcript, setTranscript] = useState<string>("");
-  const [response, setResponse] = useState<string>("Hello, I am Aura. How can I assist you today?");
+  const [response, setResponse] = useState<string>("Hello, I am Vesper. How can I assistance you today?");
   const [notes, setNotes] = useState<Note[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
+  const [history, setHistory] = useState<HistoryEvent[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Persistence: Load on mount
   useEffect(() => {
@@ -34,6 +36,9 @@ export default function App() {
 
     const savedWeather = localStorage.getItem('aura_weather');
     if (savedWeather) setWeather(JSON.parse(savedWeather));
+
+    const savedHistory = localStorage.getItem('aura_history');
+    if (savedHistory) setHistory(JSON.parse(savedHistory));
 
     const savedTimer = localStorage.getItem('aura_timer');
     if (savedTimer) {
@@ -52,6 +57,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('aura_notes', JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('aura_history', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     if (weather) localStorage.setItem('aura_weather', JSON.stringify(weather));
@@ -101,6 +110,15 @@ export default function App() {
       setState('processing');
       const result = await processVoiceCommand(text);
       setResponse(result.text);
+
+      // Add to History
+      const newEvent: HistoryEvent = {
+        id: Math.random().toString(36).substr(2, 9),
+        command: text,
+        response: result.text,
+        timestamp: Date.now()
+      };
+      setHistory(prev => [newEvent, ...prev].slice(0, 50));
 
       // Handle Actions
       if (result.action) {
@@ -171,7 +189,7 @@ export default function App() {
             <Volume2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Aura</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Vesper</h1>
             <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Assistant OS</p>
           </div>
         </div>
@@ -180,6 +198,10 @@ export default function App() {
           <span className="text-sm font-mono tracking-tighter">
             {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
+          <History 
+            className={`w-5 h-5 cursor-pointer transition-colors ${showHistory ? 'text-white' : 'hover:text-white'}`} 
+            onClick={() => setShowHistory(!showHistory)}
+          />
           <Settings className="w-5 h-5 cursor-pointer hover:text-white transition-colors" />
         </div>
       </header>
@@ -331,6 +353,50 @@ export default function App() {
           <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
         </div>
       </footer>
+
+      {/* History Sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.aside
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            className="fixed right-0 top-0 h-full w-full max-w-md glass z-50 p-8 overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-semibold">Interaction History</h2>
+              <button 
+                onClick={() => setShowHistory(false)}
+                className="text-white/40 hover:text-white transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {history.length === 0 ? (
+                <p className="text-white/30 text-center py-12 italic">No history yet. Start speaking!</p>
+              ) : (
+                history.map((event) => (
+                  <div key={event.id} className="border-b border-white/5 pb-4">
+                    <p className="text-xs text-white/30 mb-2 font-mono">
+                      {new Date(event.timestamp).toLocaleTimeString()}
+                    </p>
+                    <p className="text-white/80 font-medium mb-1">
+                      <span className="text-aura-secondary mr-2">You:</span>
+                      {event.command}
+                    </p>
+                    <p className="text-white/60 text-sm italic">
+                      <span className="text-aura-primary mr-2">Vesper:</span>
+                      {event.response}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       {/* Floating Info */}
       <div className="absolute right-8 top-1/2 -translate-y-1/2 z-10 hidden xl:flex flex-col gap-6">
