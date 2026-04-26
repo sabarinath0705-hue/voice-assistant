@@ -94,6 +94,36 @@ const sendEmailTool: FunctionDeclaration = {
   }
 };
 
+const setAlarmTool: FunctionDeclaration = {
+  name: "set_alarm",
+  description: "Sets an alarm for a specific time.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      time: {
+        type: Type.STRING,
+        description: "The time to set the alarm for (e.g. 7:00 AM)."
+      }
+    },
+    required: ["time"]
+  }
+};
+
+const openAppTool: FunctionDeclaration = {
+  name: "open_app",
+  description: "Opens a specific application.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      appName: {
+        type: Type.STRING,
+        description: "The name of the application to open (e.g. Spotify, Maps, YouTube)."
+      }
+    },
+    required: ["appName"]
+  }
+};
+
 export async function processVoiceCommand(command: string) {
   try {
     const response = await ai.models.generateContent({
@@ -106,9 +136,11 @@ export async function processVoiceCommand(command: string) {
         If the user wants to save something, use add_note.
         If they ask about weather, use get_weather.
         If they want a timer, use set_timer.
+        If they want to set an alarm, use set_alarm.
+        If they want to open an app (Maps, Spotify, YouTube, etc), use open_app.
         If they want to schedule a meeting, use schedule_meeting.
         If they want to send an email, use send_email.`,
-        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool] }]
+        tools: [{ functionDeclarations: [addNoteTool, getWeatherTool, setTimerTool, scheduleMeetingTool, sendEmailTool, setAlarmTool, openAppTool] }]
       }
     });
 
@@ -125,6 +157,10 @@ export async function processVoiceCommand(command: string) {
         action = { type: 'GET_WEATHER', payload: call.args };
       } else if (call.name === 'set_timer') {
         action = { type: 'SET_TIMER', payload: call.args };
+      } else if (call.name === 'set_alarm') {
+        action = { type: 'SET_ALARM', payload: call.args };
+      } else if (call.name === 'open_app') {
+        action = { type: 'OPEN_APP', payload: call.args };
       } else if (call.name === 'schedule_meeting') {
         action = { type: 'SCHEDULE_MEETING', payload: call.args };
       } else if (call.name === 'send_email') {

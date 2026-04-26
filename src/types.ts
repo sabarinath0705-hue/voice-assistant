@@ -7,6 +7,12 @@ export interface Note {
   createdAt: number;
 }
 
+export interface Alarm {
+  id: string;
+  time: string; // HH:mm
+  active: boolean;
+}
+
 export interface HourlyForecast {
   time: string;
   temp: number;
@@ -28,7 +34,7 @@ export interface HistoryEvent {
   timestamp: number;
 }
 
-export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'GET_WEATHER' | 'OPEN_APP' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
+export type ActionType = 'ADD_NOTE' | 'SET_TIMER' | 'SET_ALARM' | 'GET_WEATHER' | 'OPEN_APP' | 'SCHEDULE_MEETING' | 'SEND_EMAIL' | 'NONE';
 
 export interface AssistantResponse {
   text: string;

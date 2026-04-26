@@ -16,13 +16,14 @@ import {
 import confetti from 'canvas-confetti';
 import { voiceService } from './services/voiceService.ts';
 import { processVoiceCommand } from './services/assistantService.ts';
-import { AppState, Note, WeatherData, HistoryEvent } from './types.ts';
+import { AppState, Note, Alarm, WeatherData, HistoryEvent } from './types.ts';
 
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
   const [transcript, setTranscript] = useState<string>("");
   const [response, setResponse] = useState<string>("Hello, I am Zephyr. How can I assist you today?");
   const [notes, setNotes] = useState<Note[]>([]);
+  const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
@@ -39,6 +40,9 @@ export default function App() {
 
     const savedHistory = localStorage.getItem('aura_history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
+
+    const savedAlarms = localStorage.getItem('aura_alarms');
+    if (savedAlarms) setAlarms(JSON.parse(savedAlarms));
 
     const savedTimer = localStorage.getItem('aura_timer');
     if (savedTimer) {
@@ -61,6 +65,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('aura_history', JSON.stringify(history));
   }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem('aura_alarms', JSON.stringify(alarms));
+  }, [alarms]);
 
   useEffect(() => {
     if (weather) localStorage.setItem('aura_weather', JSON.stringify(weather));
@@ -98,6 +106,39 @@ export default function App() {
       setActiveTimer(null);
     }
   }, [activeTimer]);
+
+  // Alarm logic
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      const currentHHmm = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      setAlarms(prev => {
+        let triggered = false;
+        const nextAlarms = prev.map(alarm => {
+          if (alarm.active && alarm.time === currentHHmm) {
+            triggered = true;
+            return { ...alarm, active: false }; // Deactivate once triggered
+          }
+          return alarm;
+        });
+
+        if (triggered) {
+          voiceService.speak("Alarm! Your scheduled alarm is ringing.");
+          confetti({
+            particleCount: 100,
+            spread: 120,
+            origin: { y: 0.3 }
+          });
+        }
+
+        return triggered ? nextAlarms : prev;
+      });
+    };
+
+    const interval = setInterval(checkAlarms, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, [alarms]);
 
   const handleInteraction = async () => {
     if (state !== 'idle') return;
@@ -150,17 +191,63 @@ export default function App() {
           case 'SET_TIMER':
             setActiveTimer(result.action.payload.durationSeconds);
             break;
-          case 'SCHEDULE_MEETING':
+          case 'SET_ALARM': {
+            // Basic parsing of string time e.g. "07:00 AM" to "07:00"
+            const rawTime = result.action.payload.time;
+            const match = rawTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+            if (match) {
+              let h = parseInt(match[1]);
+              const m = match[2].padStart(2, '0');
+              const period = match[3]?.toUpperCase();
+              if (period === 'PM' && h < 12) h += 12;
+              if (period === 'AM' && h === 12) h = 0;
+              const hhmm = `${h.toString().padStart(2, '0')}:${m}`;
+              
+              const newAlarm: Alarm = {
+                id: Math.random().toString(36).substr(2, 9),
+                time: hhmm,
+                active: true
+              };
+              setAlarms(prev => [newAlarm, ...prev]);
+              setResponse(`Alarm set for ${rawTime}.`);
+            }
+            break;
+          }
+          case 'OPEN_APP': {
+            const app = result.action.payload.appName?.toLowerCase();
+            const appMap: Record<string, string> = {
+              'spotify': 'https://open.spotify.com',
+              'maps': 'https://maps.google.com',
+              'google maps': 'https://maps.google.com',
+              'youtube': 'https://youtube.com',
+              'calendar': 'https://calendar.google.com',
+              'gmail': 'https://mail.google.com',
+              'github': 'https://github.com',
+              'whatsapp': 'https://web.whatsapp.com',
+              'twitter': 'https://twitter.com',
+              'facebook': 'https://facebook.com',
+              'instagram': 'https://instagram.com'
+            };
+            if (app && appMap[app]) {
+              window.open(appMap[app], '_blank');
+            } else if (app) {
+              window.open(`https://www.google.com/search?q=${encodeURIComponent(app)}`, '_blank');
+            }
+            break;
+          }
+          case 'SCHEDULE_MEETING': {
             const meetingTitle = encodeURIComponent(result.action.payload.title || 'Meeting');
             const meetingDate = encodeURIComponent(result.action.payload.date || '');
-            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${meetingTitle}&details=Scheduled%20via%20Aura%20Assistant.%20Stated%20time:%20${meetingDate}`, '_blank');
+            window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${meetingTitle}&details=Scheduled%20via%20Zephyr%20Assistant.%20Stated%20time:%20${meetingDate}`, '_blank');
             break;
-          case 'SEND_EMAIL':
+          }
+          case 'SEND_EMAIL': {
             const to = encodeURIComponent(result.action.payload.to || '');
-            const subject = encodeURIComponent(result.action.payload.subject || 'Hello from Aura');
+            const subject = encodeURIComponent(result.action.payload.subject || 'Hello from Zephyr');
             const body = encodeURIComponent(result.action.payload.body || '');
             window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
             break;
+          }
         }
       }
 
@@ -176,181 +263,244 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col items-center justify-between p-8 font-sans overflow-hidden">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_0%,#1a1a2e_0%,#000_100%)]" />
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_0%_100%,#4c1d95_0%,transparent_50%)] opacity-30" />
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_100%_100%,#db2777_0%,transparent_50%)] opacity-20" />
-
+    <div className="min-h-screen relative flex flex-col items-center justify-between font-sans overflow-hidden bg-[#0A0A0A]">
+      {/* Immersive Background */}
+      <div className="atmosphere" />
+      
       {/* Header */}
-      <header className="w-full max-w-6xl z-10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-aura-primary to-aura-secondary flex items-center justify-center">
-            <Volume2 className="w-5 h-5 text-white" />
+      <header className="w-full max-w-7xl z-10 px-8 py-6 flex items-center justify-between border-b border-white/5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl tech-border flex items-center justify-center bg-white/[0.02]">
+            <div className="w-4 h-4 rounded-full bg-aura-accent shadow-[0_0_15px_rgba(6,182,212,0.5)] animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Zephyr</h1>
-            <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Assistant OS</p>
+            <h1 className="text-xl font-medium tracking-tight text-white/90">Zephyr <span className="text-aura-accent ml-1 text-xs opacity-50 font-mono italic">v2.4.0</span></h1>
+            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-medium leading-none mt-1">Autonomous Assistant OS</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-white/40">
-          <Clock className="w-5 h-5 mr-1" />
-          <span className="text-sm font-mono tracking-tighter">
-            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-          <History 
-            className={`w-5 h-5 cursor-pointer transition-colors ${showHistory ? 'text-white' : 'hover:text-white'}`} 
-            onClick={() => setShowHistory(!showHistory)}
-          />
-          <Settings className="w-5 h-5 cursor-pointer hover:text-white transition-colors" />
+
+        <div className="flex items-center gap-8">
+          <div className="hidden lg:flex flex-col items-end">
+            <p className="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1">System Entropy</p>
+            <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
+              <motion.div 
+                animate={{ width: ['20%', '45%', '30%'] }} 
+                transition={{ duration: 5, repeat: Infinity }} 
+                className="h-full bg-aura-primary" 
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6 text-white/50">
+            <div className="flex flex-col items-end">
+              <span className="text-xl font-mono tracking-tighter text-white font-medium">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="text-[9px] uppercase tracking-widest opacity-50 font-mono">
+                {currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+            <div className="h-8 w-px bg-white/10" />
+            <History 
+              className={`w-5 h-5 cursor-pointer transition-colors ${showHistory ? 'text-aura-accent' : 'hover:text-white'}`} 
+              onClick={() => setShowHistory(!showHistory)}
+            />
+            <Settings className="w-5 h-5 cursor-pointer hover:text-white transition-colors" />
+          </div>
         </div>
       </header>
 
-      {/* Main Stage */}
-      <main className="flex-1 w-full flex flex-col items-center justify-center z-10 py-12">
-        <div className="relative group cursor-pointer" onClick={handleInteraction}>
-          {/* Orb Animation */}
-          <motion.div
-            animate={{
-              scale: state === 'listening' ? [1, 1.2, 1] : state === 'processing' ? [1, 0.9, 1] : 1,
-              rotate: state === 'processing' ? 360 : 0
-            }}
-            transition={{
-              duration: state === 'listening' ? 1.5 : 3,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className={`w-64 h-64 rounded-full glass orb-glow flex items-center justify-center relative transition-all duration-700 ${state !== 'idle' ? 'border-aura-secondary/50' : 'border-white/10'}`}
-          >
-            {/* Inner dynamic layers */}
+      {/* Main Intelligent Interaction Stage */}
+      <main className="flex-1 w-full flex flex-col items-center justify-center z-10 px-8">
+        <div className="relative group" onClick={handleInteraction}>
+          {/* Orbital Command Hub */}
+          <div className="relative w-[340px] h-[340px] flex items-center justify-center">
+            {/* Outer Rotating Rings */}
             <motion.div 
-              animate={{ 
-                opacity: state === 'listening' ? [0.2, 0.6, 0.2] : 0.1,
-                scale: state === 'listening' ? [0.8, 1.1, 0.8] : 0.9
-              }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute inset-4 rounded-full bg-aura-secondary blur-2xl" 
+              animate={{ rotate: 360 }} 
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 border border-dashed border-white/10 rounded-full" 
             />
             <motion.div 
-              animate={{ 
-                opacity: state === 'speaking' ? [0.2, 0.5, 0.2] : 0.1,
-                scale: state === 'speaking' ? [0.9, 1.05, 0.9] : 0.8
-              }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-              className="absolute inset-8 rounded-full bg-aura-primary blur-3xl shadow-[0_0_100px_rgba(139,92,246,0.5)]" 
+              animate={{ rotate: -360 }} 
+              transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-8 border border-white/5 rounded-full" 
             />
+            
+            {/* Core Orb */}
+            <motion.div
+              animate={{
+                scale: state === 'listening' ? [1, 1.1, 1] : state === 'processing' ? [1, 0.95, 1] : 1,
+              }}
+              className={`w-56 h-56 rounded-full glass orb-glow flex items-center justify-center relative z-20 tech-border cursor-pointer transition-all duration-500 ${state !== 'idle' ? 'border-aura-accent/40 bg-aura-accent/5 shadow-[0_0_100px_rgba(6,182,212,0.15)]' : 'border-white/10 hover:border-white/20'}`}
+            >
+              <AnimatePresence mode="wait">
+                {state === 'idle' ? (
+                  <motion.div key="mic" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}>
+                    <Mic className="w-12 h-12 text-white/70" />
+                  </motion.div>
+                ) : state === 'listening' ? (
+                  <motion.div key="listening" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1.5 items-center">
+                    {[0, 1, 2, 3].map(i => (
+                      <motion.div
+                        key={i}
+                        animate={{ height: [12, 48, 12], opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }}
+                        className="w-1 bg-aura-accent rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+                      />
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div key="processing" animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
+                    <div className="w-12 h-12 border-2 border-aura-secondary border-t-transparent rounded-full" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-            <AnimatePresence mode="wait">
-              {state === 'idle' ? (
-                <motion.div key="mic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <Mic className="w-16 h-16 text-white/80" />
-                </motion.div>
-              ) : state === 'listening' ? (
-                <motion.div key="listening" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1 items-end h-8">
-                  {[0, 1, 2, 3, 4].map(i => (
-                    <motion.div
-                      key={i}
-                      animate={{ height: [8, 32, 8] }}
-                      transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
-                      className="w-1.5 bg-white rounded-full"
-                    />
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <History className="w-16 h-16 text-aura-secondary opacity-50" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+            {/* Orbiting Satellite Widgets (Status indicators) */}
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 pointer-events-none"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white/20 rounded-full blur-[2px]" />
+            </motion.div>
+          </div>
           
-          <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
-            <p className="text-white/60 text-sm font-medium tracking-wide">
-              {state === 'listening' ? 'Listening...' : state === 'processing' ? 'Thinking...' : state === 'speaking' ? 'Speaking...' : 'Tap for Command'}
-            </p>
+          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center w-64">
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-[10px] text-aura-accent uppercase tracking-[0.3em] font-mono"
+            >
+              {state === 'listening' ? 'Acquiring Signal' : state === 'processing' ? 'Processing Logic' : state === 'speaking' ? 'Relaying Output' : 'Awaiting Voice'}
+            </motion.p>
           </div>
         </div>
 
-        {/* Text Area */}
-        <div className="mt-24 w-full max-w-2xl text-center">
-          <p className="text-white/40 italic text-sm mb-2">{transcript || '"Tell me a joke"'}</p>
-          <motion.h2 
-            key={response}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-medium leading-relaxed bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent"
-          >
-            {response}
-          </motion.h2>
+        {/* Intelligence Output Display */}
+        <div className="mt-32 w-full max-w-3xl">
+          <div className="flex flex-col items-center gap-6">
+            <p className="text-white/30 italic text-sm font-light tracking-wide bg-white/5 px-4 py-1.5 rounded-full tech-border">
+              {transcript ? `"${transcript}"` : '"Open Spotify and play music"'}
+            </p>
+            <motion.div 
+              key={response}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center"
+            >
+              <h2 className="text-3xl md:text-4xl font-light leading-tight tracking-tight text-white/90">
+                {response}
+              </h2>
+            </motion.div>
+          </div>
         </div>
       </main>
 
-      {/* Widgets Grid */}
-      <footer className="w-full max-w-6xl z-10 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {/* Weather Widget */}
-        <div className="glass rounded-3xl p-6 flex flex-col gap-4 group hover:border-white/20 transition-all">
+      {/* Modular Utility Rail */}
+      <footer className="w-full max-w-7xl z-10 px-8 pb-10 grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Module: Weather */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-4 group transition-all hover:bg-white/[0.05]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                <Cloud className="w-6 h-6 text-blue-400" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center tech-border">
+                <Cloud className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white/50">Weather</p>
-                <h3 className="text-lg font-semibold">{weather ? `${weather.temp}°C, ${weather.condition}` : '24°C, Cloudy'}</h3>
-                <p className="text-xs text-white/30">{weather?.location || 'San Francisco'}</p>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Atmosphere</p>
+                <h3 className="text-base font-medium">{weather ? `${weather.temp}°C, ${weather.condition}` : '24°C, Cloudy'}</h3>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest text-white/40">Rain Chance</p>
-              <p className="text-sm font-mono text-blue-400">{weather?.precipitation || 12}%</p>
+            <div className="text-right font-mono">
+              <p className="text-[9px] text-white/20 uppercase">Humidity</p>
+              <p className="text-xs text-blue-400">{weather?.precipitation || 12}%</p>
             </div>
           </div>
-          
-          <div className="flex justify-between items-center bg-white/5 rounded-2xl p-3">
-            {(weather?.hourly || [
-              { time: '14:00', temp: 24, condition: 'Sunny' },
-              { time: '15:00', temp: 23, condition: 'Cloudy' },
-              { time: '16:00', temp: 22, condition: 'Sunny' },
-              { time: '17:00', temp: 21, condition: 'Cloudy' }
-            ]).slice(0, 4).map((h, i) => (
-              <div key={i} className="text-center">
-                <p className="text-[9px] text-white/40 mb-1">{h.time}</p>
-                <p className="text-xs font-medium">{h.temp}°</p>
+          <div className="flex justify-between items-center bg-black/40 rounded-xl p-2 border border-white/5">
+            {(weather?.hourly || Array.from({length: 4}).map((_, i) => ({ time: `${14 + i}:00`, temp: 24 - i }))).slice(0, 4).map((h: any, i) => (
+              <div key={i} className="text-center px-2">
+                <p className="text-[8px] text-white/30 mb-0.5">{h.time}</p>
+                <p className="text-[10px] font-mono font-medium">{h.temp}°</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Notes Widget */}
-        <div className="glass rounded-3xl p-6 flex items-center justify-between group hover:border-white/20 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-aura-secondary/10 flex items-center justify-center">
-              <StickyNote className="w-6 h-6 text-aura-secondary" />
+        {/* Module: Memory (Notes) */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-3 group transition-all hover:bg-white/[0.05]">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center tech-border">
+                <StickyNote className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Cognition</p>
+                <h3 className="text-base font-medium">Memory Cache</h3>
+              </div>
             </div>
-            <div className="max-w-[180px]">
-              <p className="text-sm font-medium text-white/50">Notes</p>
-              <h3 className="text-lg font-semibold truncate">{notes.length > 0 ? notes[0].content : 'No active notes'}</h3>
-              <p className="text-xs text-white/30 truncate">{notes.length > 0 && notes[0].details ? notes[0].details : `${notes.length} saved intents`}</p>
-            </div>
+            <span className="text-[10px] font-mono text-white/20">{notes.length} Ent.</span>
           </div>
-          <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+          <div className="flex-1 bg-black/40 rounded-xl p-3 border border-white/5">
+             <h4 className="text-xs font-medium text-white/80 line-clamp-1 mb-1">{notes.length > 0 ? notes[0].content : 'No active notes'}</h4>
+             <p className="text-[10px] text-white/30 line-clamp-2 leading-relaxed">{notes.length > 0 && notes[0].details ? notes[0].details : 'Your saved tactical data and voice intents will appear here.'}</p>
+          </div>
         </div>
 
-        {/* Timers/Clock Widget */}
-        <div className={`glass rounded-3xl p-6 flex items-center justify-between group hover:border-white/20 transition-all ${activeTimer !== null ? 'border-aura-accent/30' : ''}`}>
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl bg-aura-accent/10 flex items-center justify-center ${activeTimer !== null ? 'animate-pulse' : ''}`}>
-              <Timer className={`w-6 h-6 ${activeTimer !== null ? 'text-aura-accent' : 'text-white/40'}`} />
+        {/* Module: Temporal (Alarms/Timer) */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-3 group transition-all hover:bg-white/[0.05]">
+           <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center tech-border ${activeTimer !== null ? 'animate-pulse border-cyan-500/30' : ''}`}>
+                <Clock className={`w-5 h-5 ${activeTimer !== null ? 'text-cyan-400' : 'text-white/30'}`} />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Temporal</p>
+                <h3 className="text-base font-medium">System Alarms</h3>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-white/50">Active Timer</p>
-              <h3 className="text-lg font-semibold font-mono tracking-tighter">
-                {activeTimer !== null ? `${Math.floor(activeTimer / 60)}:${(activeTimer % 60).toString().padStart(2, '0')}` : '00:00:00'}
-              </h3>
-              <p className="text-xs text-white/30">{activeTimer !== null ? 'Countdown active' : 'None set'}</p>
+            <div className="flex-1 bg-black/40 rounded-xl p-3 border border-white/5 flex flex-col justify-center">
+              {activeTimer !== null ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] uppercase text-white/20 mb-1">Active Timer</p>
+                    <p className="text-xl font-mono text-cyan-400 tracking-tighter">
+                      {Math.floor(activeTimer / 60)}:{(activeTimer % 60).toString().padStart(2, '0')}
+                    </p>
+                  </div>
+                  <Timer className="w-5 h-5 text-cyan-400 animate-spin-slow" />
+                </div>
+              ) : alarms.length > 0 ? (
+                <div className="flex items-center justify-between">
+                   <div>
+                    <p className="text-[9px] uppercase text-white/20 mb-1">Upcoming Alarm</p>
+                    <p className="text-xl font-mono text-white/80 tracking-tighter">{alarms[0].time}</p>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+                </div>
+              ) : (
+                <p className="text-[10px] text-white/30 italic">No active temporal anchors.</p>
+              )}
             </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+        </div>
+
+        {/* Module: Quick Actions */}
+        <div className="glass tech-border rounded-2xl p-5 flex flex-col gap-4">
+           <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Quick Deployment</p>
+           <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => window.open('https://open.spotify.com', '_blank')} className="bg-white/5 hover:bg-white/10 p-2 rounded-lg text-[10px] border border-white/5 transition-colors flex items-center justify-center gap-2">
+                <Volume2 className="w-3 h-3 text-aura-accent" /> Spotify
+              </button>
+              <button onClick={() => window.open('https://calendar.google.com', '_blank')} className="bg-white/5 hover:bg-white/10 p-2 rounded-lg text-[10px] border border-white/5 transition-colors flex items-center justify-center gap-2">
+                <Clock className="w-3 h-3 text-aura-primary" /> Calendar
+              </button>
+              <button onClick={() => window.open('https://maps.google.com', '_blank')} className="bg-white/5 hover:bg-white/10 p-2 rounded-lg text-[10px] border border-white/5 transition-colors flex items-center justify-center gap-2">
+                <Cloud className="w-3 h-3 text-blue-400" /> Maps
+              </button>
+              <button onClick={() => setShowHistory(true)} className="bg-white/5 hover:bg-white/10 p-2 rounded-lg text-[10px] border border-white/5 transition-colors flex items-center justify-center gap-2">
+                <History className="w-3 h-3 text-aura-secondary" /> Logs
+              </button>
+           </div>
         </div>
       </footer>
 
@@ -397,23 +547,6 @@ export default function App() {
           </motion.aside>
         )}
       </AnimatePresence>
-
-      {/* Floating Info */}
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 z-10 hidden xl:flex flex-col gap-6">
-        <InfoTooltip icon={<Info className="w-5 h-5" />} label="Voice Active" />
-        <InfoTooltip icon={<MicOff className="w-5 h-5" />} label="STT Idle" />
-      </div>
-    </div>
-  );
-}
-
-function InfoTooltip({ icon, label }: { icon: React.ReactNode, label: string }) {
-  return (
-    <div className="w-12 h-12 glass rounded-full flex items-center justify-center relative group cursor-help">
-      <div className="text-white/40">{icon}</div>
-      <span className="absolute right-14 bg-black border border-white/10 px-3 py-1 rounded text-[10px] uppercase tracking-widest text-white/60 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-        {label}
-      </span>
     </div>
   );
 }
