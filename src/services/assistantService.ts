@@ -11,7 +11,11 @@ const addNoteTool: FunctionDeclaration = {
     properties: {
       content: {
         type: Type.STRING,
-        description: "The content of the note to save."
+        description: "The main content or title of the note."
+      },
+      details: {
+        type: Type.STRING,
+        description: "Additional details or extensive description for the note."
       }
     },
     required: ["content"]

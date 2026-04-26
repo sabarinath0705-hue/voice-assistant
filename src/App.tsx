@@ -109,16 +109,24 @@ export default function App() {
             const newNote: Note = {
               id: Math.random().toString(36).substr(2, 9),
               content: result.action.payload.content,
+              details: result.action.payload.details,
               createdAt: Date.now()
             };
             setNotes(prev => [newNote, ...prev]);
             break;
           case 'GET_WEATHER':
-            // Mock weather fetch
+            // Mock weather fetch with expanded data
+            const baseTemp = 22 + Math.floor(Math.random() * 10);
             setWeather({
-              temp: 22 + Math.floor(Math.random() * 10),
-              condition: 'Sunny',
-              location: result.action.payload.location
+              temp: baseTemp,
+              condition: 'Partly Cloudy',
+              location: result.action.payload.location,
+              precipitation: Math.floor(Math.random() * 60),
+              hourly: Array.from({ length: 5 }).map((_, i) => ({
+                time: `${(new Date().getHours() + i + 1) % 24}:00`,
+                temp: baseTemp + Math.floor(Math.random() * 4) - 2,
+                condition: ['Sunny', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)]
+              }))
             });
             break;
           case 'SET_TIMER':
@@ -247,18 +255,37 @@ export default function App() {
       {/* Widgets Grid */}
       <footer className="w-full max-w-6xl z-10 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         {/* Weather Widget */}
-        <div className="glass rounded-3xl p-6 flex items-center justify-between group hover:border-white/20 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-              <Cloud className="w-6 h-6 text-blue-400" />
+        <div className="glass rounded-3xl p-6 flex flex-col gap-4 group hover:border-white/20 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                <Cloud className="w-6 h-6 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white/50">Weather</p>
+                <h3 className="text-lg font-semibold">{weather ? `${weather.temp}°C, ${weather.condition}` : '24°C, Cloudy'}</h3>
+                <p className="text-xs text-white/30">{weather?.location || 'San Francisco'}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-white/50">Weather</p>
-              <h3 className="text-lg font-semibold">{weather ? `${weather.temp}°C, ${weather.condition}` : '24°C, Cloud'}</h3>
-              <p className="text-xs text-white/30">{weather?.location || 'San Francisco'}</p>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-widest text-white/40">Rain Chance</p>
+              <p className="text-sm font-mono text-blue-400">{weather?.precipitation || 12}%</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+          
+          <div className="flex justify-between items-center bg-white/5 rounded-2xl p-3">
+            {(weather?.hourly || [
+              { time: '14:00', temp: 24, condition: 'Sunny' },
+              { time: '15:00', temp: 23, condition: 'Cloudy' },
+              { time: '16:00', temp: 22, condition: 'Sunny' },
+              { time: '17:00', temp: 21, condition: 'Cloudy' }
+            ]).slice(0, 4).map((h, i) => (
+              <div key={i} className="text-center">
+                <p className="text-[9px] text-white/40 mb-1">{h.time}</p>
+                <p className="text-xs font-medium">{h.temp}°</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Notes Widget */}
@@ -267,10 +294,10 @@ export default function App() {
             <div className="w-12 h-12 rounded-2xl bg-aura-secondary/10 flex items-center justify-center">
               <StickyNote className="w-6 h-6 text-aura-secondary" />
             </div>
-            <div>
+            <div className="max-w-[180px]">
               <p className="text-sm font-medium text-white/50">Notes</p>
-              <h3 className="text-lg font-semibold">{notes.length > 0 ? notes[0].content : 'No active notes'}</h3>
-              <p className="text-xs text-white/30">{notes.length} saved intents</p>
+              <h3 className="text-lg font-semibold truncate">{notes.length > 0 ? notes[0].content : 'No active notes'}</h3>
+              <p className="text-xs text-white/30 truncate">{notes.length > 0 && notes[0].details ? notes[0].details : `${notes.length} saved intents`}</p>
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
